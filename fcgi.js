@@ -123,7 +123,7 @@ var handleConnection = function(socket, server) {
 	socket.resume();
 };
 
-module.exports.handle = function(server) {
+module.exports.handle = function(server, callback) {
 	var initiateShutdown = function() {
 		console.error("Initiating shutdown.");
 		shuttingDown = true;
@@ -135,7 +135,7 @@ module.exports.handle = function(server) {
 	};
 
 	var sockserver = net.Server();
-	sockserver.listen({fd: 0});
+	sockserver.listen({fd: 0}, callback);
 	sockserver.on('connection', function(result) {
 		handleConnection(result, server);
 	});
