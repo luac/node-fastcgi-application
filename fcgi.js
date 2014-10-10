@@ -2,11 +2,7 @@ var fcgi = require("fastcgi-stream"),
 	fs = require("fs"),
 	util = require("util"),
 	net = require("net"),
-	http = require("http"),
-	IOWatcher = process.binding("io_watcher").IOWatcher,
-	
-	netBindings = process.binding("net"),
-	_net_accept = netBindings.accept;
+	http = require("http");
 
 var FCGI_LISTENSOCK_FILENO = process.stdin.fd;
 
@@ -26,8 +22,7 @@ var closeConnection = function(socket) {
 }
 
 // This is where the magic happens.
-var handleConnection = function(result, server) {
-	var socket = new net.Socket(result.fd);
+var handleConnection = function(socket, server) {
 	socket.setNoDelay(true);
 	var fastcgiStream = new fcgi.FastCGIStream(socket);
 	
@@ -74,7 +69,8 @@ var handleConnection = function(result, server) {
 						var stdOutRecord = new fcgi.records.StdOut(data);
 						stdOutRecord.encoding = encoding;
 						fastcgiStream.writeRecord(requestId, stdOutRecord);
-					}
+					},
+					on: function() {}
 				});
 				
 				// TODO: would be nice to support this, but it's causing weird
@@ -134,21 +130,16 @@ module.exports.handle = function(server) {
 		console.error(activeRequests);
 		if(activeRequests == 0) {
 			console.error("Shutting down.");
-			watcher.stop();
 			process.exit(0);
 		}
 	};
 
-	var watcher = new IOWatcher();
-	watcher.set(FCGI_LISTENSOCK_FILENO, true, false);
-	
-	watcher.callback = function() {
-		var result = _net_accept(FCGI_LISTENSOCK_FILENO);
+	var sockserver = net.Server();
+	sockserver.listen({fd: 0});
+	sockserver.on('connection', function(result) {
 		handleConnection(result, server);
-	};
+	});
 	
-	watcher.start();
-
 	process.on("SIGUSR1", initiateShutdown);
 	process.on("SIGTERM", initiateShutdown);
 };
